@@ -1,15 +1,13 @@
 package org.example;
 
-import javax.script.ScriptEngine;
-import javax.script.ScriptEngineManager;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.util.Stack;
 
 public class Main {
     public static void main(String[] args) {
-
         JFrame frame = new JFrame();
         frame.setSize(900, 900);
         frame.setTitle("--Calculator--");
@@ -25,7 +23,7 @@ public class Main {
         frame.add(tabelka, BorderLayout.NORTH);
 
         JPanel panelPrzyciski = new JPanel();
-        panelPrzyciski.setLayout(new GridLayout(5, 4, 5, 5)); // 5 wierszy, 4 kolumny
+        panelPrzyciski.setLayout(new GridLayout(5, 4, 5, 5));
         panelPrzyciski.setOpaque(false);
 
         String[] buttons = {
@@ -33,11 +31,10 @@ public class Main {
                 "4", "5", "6", "*",
                 "1", "2", "3", "-",
                 "0", ".", "=", "+",
-                "C", "delate", "<3", "<3"
+                "C", "⌫", "<3", "<3"
         };
 
-        ScriptEngine engine = new ScriptEngineManager().getEngineByName("JavaScript");
-        final boolean[] justCalculated = {false}; // flaga, czy zaraz po "="
+        final boolean[] justCalculated = {false};
 
         for (String tekst : buttons) {
             JButton btn = new JButton(tekst);
@@ -48,38 +45,47 @@ public class Main {
             btn.setBorderPainted(true);
             btn.setFocusPainted(false);
 
-            if (tekst.equals("")) {
-                btn.setEnabled(false);
-            }
-
             btn.addActionListener(new ActionListener() {
                 @Override
                 public void actionPerformed(ActionEvent e) {
                     String current = tabelka.getText();
 
-                    if (tekst.equals("C")) {
-                        tabelka.setText("");
-                        justCalculated[0] = false;
-                    } else if (tekst.equals("⌫")) {
-                        if (!current.isEmpty()) {
-                            tabelka.setText(current.substring(0, current.length() - 1));
-                        }
-                    } else if (tekst.equals("=")) {
-                        try {
-                            Object result = engine.eval(current);
-                            tabelka.setText(result.toString());
-                            justCalculated[0] = true;
-                        } catch (Exception ex) {
-                            tabelka.setText("Error");
-                            justCalculated[0] = true;
-                        }
-                    } else {
-                        if (justCalculated[0]) {
-                            tabelka.setText(tekst);
+                    switch (tekst) {
+                        case "C":
+                            tabelka.setText("");
                             justCalculated[0] = false;
-                        } else {
-                            tabelka.setText(current + tekst);
-                        }
+                            break;
+
+                        case "⌫":
+                            if (!current.isEmpty()) {
+                                tabelka.setText(current.substring(0, current.length() - 1));
+                            }
+                            justCalculated[0] = false;
+                            break;
+
+                        case "=":
+                            try {
+                                double result = evaluateExpression(current);
+                                tabelka.setText(removeTrailingZeros(result));
+                                justCalculated[0] = true;
+                            } catch (Exception ex) {
+                                tabelka.setText("Error");
+                                justCalculated[0] = true;
+                            }
+                            break;
+
+                        case "<3":
+                            JOptionPane.showMessageDialog(frame, "❤️ Sending you calculator love! ❤️");
+                            break;
+
+                        default:
+                            if (justCalculated[0]) {
+                                tabelka.setText(tekst);
+                                justCalculated[0] = false;
+                            } else {
+                                tabelka.setText(current + tekst);
+                            }
+                            break;
                     }
                 }
             });
@@ -89,5 +95,66 @@ public class Main {
 
         frame.add(panelPrzyciski, BorderLayout.CENTER);
         frame.setVisible(true);
+    }
+
+    // Simple math expression evaluator
+    private static double evaluateExpression(String expression) {
+        Stack<Double> numbers = new Stack<>();
+        Stack<Character> operations = new Stack<>();
+        StringBuilder numBuffer = new StringBuilder();
+
+        for (char ch : expression.toCharArray()) {
+            if (Character.isDigit(ch) || ch == '.') {
+                numBuffer.append(ch);
+            } else if (isOperator(ch)) {
+                if (numBuffer.length() > 0) {
+                    numbers.push(Double.parseDouble(numBuffer.toString()));
+                    numBuffer.setLength(0);
+                }
+                while (!operations.isEmpty() && precedence(operations.peek()) >= precedence(ch)) {
+                    numbers.push(applyOperation(operations.pop(), numbers.pop(), numbers.pop()));
+                }
+                operations.push(ch);
+            }
+        }
+
+        if (numBuffer.length() > 0) {
+            numbers.push(Double.parseDouble(numBuffer.toString()));
+        }
+
+        while (!operations.isEmpty()) {
+            numbers.push(applyOperation(operations.pop(), numbers.pop(), numbers.pop()));
+        }
+
+        return numbers.pop();
+    }
+
+    private static boolean isOperator(char ch) {
+        return ch == '+' || ch == '-' || ch == '*' || ch == '/';
+    }
+
+    private static int precedence(char op) {
+        if (op == '+' || op == '-') return 1;
+        if (op == '*' || op == '/') return 2;
+        return 0;
+    }
+
+    private static double applyOperation(char op, double b, double a) {
+        switch (op) {
+            case '+': return a + b;
+            case '-': return a - b;
+            case '*': return a * b;
+            case '/':
+                if (b == 0) throw new ArithmeticException("Division by zero");
+                return a / b;
+        }
+        return 0;
+    }
+
+    private static String removeTrailingZeros(double num) {
+        if (num == (long) num)
+            return String.format("%d", (long) num);
+        else
+            return String.format("%s", num);
     }
 }
